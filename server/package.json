@@ -6,7 +6,7 @@
     "dev": "npx ts-node-dev --respawn --transpile-only -r tsconfig-paths/register src/index.ts",
     "check:provider": "npx ts-node -r tsconfig-paths/register src/scripts/checkProvider.ts",
     "build": "tsc",
-    "start": "node dist/index.js",
+    "start": "node dist/server/src/index.js",
     "lint": "eslint src --ext .ts",
     "test": "jest --runInBand"
   },
