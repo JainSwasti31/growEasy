@@ -1,63 +1,58 @@
 # GrowEasy CSV Importer
 
-An AI-powered CSV-to-CRM importer. Upload any CSV — Facebook Lead Ads, Google Ads, real estate exports, manual spreadsheets — and the AI maps arbitrary columns to a fixed CRM schema automatically.
+An AI-powered CSV-to-CRM importer. Upload any CSV — Facebook Lead Ads, Google Ads, real estate exports, or manual spreadsheets — and the AI maps arbitrary columns to a fixed CRM schema automatically.
 
----
+## Repository structure
 
-## Architecture
-
-```
+```text
 csv_project/          ← npm workspace root
 ├── client/           ← Next.js 14 (App Router, TypeScript, Tailwind CSS)
 ├── server/           ← Express 4 (TypeScript) — REST API + AI extraction
-└── shared/           ← Shared TypeScript types (CRM schema, API contracts)
+└── shared/           ← Shared TypeScript types and schemas
 ```
 
-**Why Express in `/server` instead of Next.js API routes?**  
-The AI extraction pipeline involves heavy, stateful async work (batched LLM calls, retries, token tracking). Keeping it in a dedicated Express server gives clean separation of concerns, easier independent scaling/deployment, and lets us add streaming (Phase 7) without fighting Next.js's edge/serverless constraints.
+## What's included
 
-**AI provider abstraction:**  
-The server uses an `AI_PROVIDER` env var to select between OpenAI, Gemini, and Anthropic behind a common `aiExtractor` interface. Swapping providers requires only a new adapter — no prompt or routing changes.
-
----
+- `client/` — React-based uploader, preview, import workflow, and results UI
+- `server/` — CSV parsing, AI provider orchestration, retries, and REST APIs
+- `shared/` — shared CRM types, API contract types, and validation schemas
 
 ## Prerequisites
 
 - Node.js v18+
-- npm v9+ (pnpm works too if installed)
-
----
+- npm v9+
 
 ## Setup
 
 ```bash
-# 1. Clone and install all workspace dependencies
 npm install
-
-# 2. Configure environment variables
-cp client/.env.example client/.env.local
-cp server/.env.example server/.env
-# Edit server/.env — set AI_PROVIDER and the matching API key
 ```
 
----
-
-## Running in development
+Create local env files:
 
 ```bash
-# Terminal 1 — Express server (http://localhost:4000)
-npm run dev:server
+copy client\.env.example client\.env
+copy server\.env.example server\.env
+```
 
-# Terminal 2 — Next.js client (http://localhost:3000)
+Then update `server/.env` with your chosen provider and API keys.
+
+## Development
+
+Run the server and client in separate terminals:
+
+```bash
+npm run dev:server
 npm run dev:client
 ```
 
-Or run both with a split-terminal tool:
-```bash
-npm run dev   # starts both concurrently (Windows: may need concurrently package)
-```
+The client is available at `http://localhost:3000` and the server at `http://localhost:4000`.
 
----
+## Build
+
+```bash
+npm run build
+```
 
 ## Environment variables
 
@@ -66,122 +61,59 @@ npm run dev   # starts both concurrently (Windows: may need concurrently package
 | Variable | Required | Description |
 |---|---|---|
 | `PORT` | No | Server port (default: 4000) |
-| `AI_PROVIDER` | Yes | `openai` \| `gemini` \| `anthropic` |
-| `OPENAI_API_KEY` | If using OpenAI | OpenAI secret key |
-| `GEMINI_API_KEY` | If using Gemini | Google AI Studio key |
-| `ANTHROPIC_API_KEY` | If using Anthropic | Anthropic secret key |
-| `CORS_ORIGINS` | No | Comma-separated allowed origins (default: `http://localhost:3000`) |
+| `AI_PROVIDER` | Yes | `openai`, `gemini`, or `anthropic` |
+| `OPENAI_API_KEY` | Conditionally | OpenAI secret key |
+| `GEMINI_API_KEY` | Conditionally | Google Gemini API key |
+| `ANTHROPIC_API_KEY` | Conditionally | Anthropic API key |
+| `CORS_ORIGINS` | No | Comma-separated origins (default: `http://localhost:3000`) |
+| `RESTART_TOKEN` | No | Optional token for admin restart endpoint |
+| `PROVIDER_MAX_RETRIES` | No | Retry attempts for provider errors |
+| `PARSE_MAX_RETRIES` | No | Retry attempts for parse/validation failures |
+| `AI_INTER_BATCH_DELAY_MS` | No | Delay between AI batches in ms |
+| `AI_RATE_LIMIT_BACKOFF_MS` | No | Backoff base delay for rate limits |
 
-### `client/.env.local`
+### `client/.env`
 
 | Variable | Required | Description |
 |---|---|---|
-| `NEXT_PUBLIC_API_URL` | Yes | URL of the Express server (default: `http://localhost:4000`) |
-
----
+| `NEXT_PUBLIC_API_URL` | Yes | Server URL, e.g. `http://localhost:4000` |
 
 ## API Endpoints
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/api/health` | Liveness check → `{ status: "ok" }` |
-| `POST` | `/api/csv/parse` | Parse CSV → raw headers + preview rows *(Phase 3)* |
-| `POST` | `/api/csv/import` | Parse + AI-extract → CRM records + skipped rows *(Phase 5)* |
+| `GET` | `/api/health` | Liveness check |
+| `POST` | `/api/csv/parse` | Parse uploaded CSV and return preview data |
+| `POST` | `/api/csv/import` | Import CSV via AI extraction into CRM records |
 
----
+## Key features
 
-## Build
+- AI-based mapping of arbitrary CSV columns to a fixed CRM record schema
+- CSV preview and import workflow in the client
+- Robust provider retry/backoff handling for transient AI errors
+- Skipped-row reporting with original row data for review
+- Light/dark theme toggle and polished client UI
 
-```bash
-npm run build   # builds shared → client → server in dependency order
-```
+## Notes
 
----
+- The server keeps data in memory per request and does not persist uploads.
+- Shared types in `shared/` keep server and client contracts aligned.
+- The client and server are intentionally separated so the AI extraction service can evolve independently.
 
-## Phases
-
-| Phase | Scope | Status |
-|---|---|---|
-| 0 | Project scaffold | ✅ Done |
-| 1 | Frontend: CSV upload component | 🔜 |
-| 2 | Frontend: CSV preview table | 🔜 |
-| 3 | Backend: CSV parse endpoint | 🔜 |
-| 4 | Backend: AI field-mapping extraction | 🔜 |
-| 5 | End-to-end wiring | 🔜 |
-| 6 | Robustness & edge cases | 🔜 |
-| 7 | Bonus polish | 🔜 |
-
----
-
-## Design decisions (to be expanded per phase)
-
-- **Stateless server:** The server never persists uploaded files or parsed data. Everything lives in memory per-request, keeping the server horizontally scalable and removing any storage concerns.
-- **Shared types package:** `@groweasy/shared` holds Zod schemas and TypeScript types for both the CRM record and API contracts. Both client and server import from it, so request/response shapes can never drift out of sync.
-- **Batched AI calls:** Large CSVs are split into batches of ~20–50 rows before being sent to the LLM, balancing token limits against too many API round trips. (Details in Phase 4.)
-
----
-
-## Stage D — Retry + UI (Completed)
-
-- **What was added:**
-	- Server-side provider retry/backoff heuristics (`withRetry`) to robustly handle 429s and transient failures.
-	- Configurable env vars to tune retries/backoff: `PROVIDER_MAX_RETRIES`, `PARSE_MAX_RETRIES`, `AI_INTER_BATCH_DELAY_MS`, `AI_RATE_LIMIT_BACKOFF_MS` (see `server/.env.example`).
-	- `POST /api/csv/retry` endpoint to reprocess skipped rows (server).
-	- Frontend `ImportResults` UI: button to "Retry failed rows" which calls the retry endpoint and merges results client-side.
-	- `server/src/scripts/checkProvider.ts` smoke-test CLI to validate provider connectivity and keys.
-	- Admin restart hook (`/admin/restart`) guarded by `RESTART_TOKEN` for quick env reloads in dev.
-	- `server/Dockerfile`, `client/Dockerfile`, `.dockerignore`, and `docker-compose.yml` added to enable local containerized dev.
-
-### How to test Stage D locally (safe, minimal):
-
-1. Create local env files from examples (do NOT commit real keys):
-
-```powershell
-copy server\.env.example server\.env
-copy client\.env.example client\.env
-# Edit server\.env to set AI_PROVIDER and keys (or leave keys blank to avoid external calls)
-```
-
-2. Build and run containers (or run dev servers if you prefer):
+## Useful commands
 
 ```bash
-docker-compose up --build
-# or
-npm run dev:server
 npm run dev:client
+npm run dev:server
+npm run build
+npm test
 ```
 
-3. Verify server health:
+## Recommended workflow
 
-```bash
-curl http://localhost:4000/api/health
-```
-
-4. Run provider smoke-test (light check):
-
-```bash
-# from project root
-docker-compose run --rm server npm run check:provider
-```
-
-5. Try a small import (beware of provider quota):
-
-```bash
-curl -X POST -F "file=@server/test-samples/basic.csv" http://localhost:4000/api/csv/import
-```
-
-If the response contains skipped rows with `ai_validation_failed`, open the client UI → Import Results → click "Retry failed rows" to re-run them via the retry endpoint.
-
----
-
-## Stage F — README & Tests (Next)
-
-Planned checklist for Stage F (I can start these now):
-
-- Update `README.md` with Stage D runbook and testing instructions. (in-progress)
-- Add unit test for `parseAndValidate()` to assert `sourceRowIndex` mapping and retry behavior.
-- Add unit test for `parseAndValidate()` to assert `sourceRowIndex` mapping and retry behavior.
-- Run the full test suite and fix any failing tests discovered.
-- Add a GitHub Actions workflow to run tests on push/PR.
-
-If you want me to begin, I can implement the `mock` provider first (safe local testing), then the unit test for `parseAndValidate()`, and run the test suite. Proceed? 
+1. Start the server and client.
+2. Upload a CSV from the client.
+3. Review the CSV preview screen.
+4. Confirm import and review the mapped CRM records.
+5. Inspect skipped rows to understand missing or invalid data.
+ 
