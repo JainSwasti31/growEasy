@@ -48,6 +48,15 @@ npm run dev:client
 
 The client is available at `http://localhost:3000` and the server at `http://localhost:4000`.
 
+## Production deployment
+
+When deployed, set the client to point at your live backend URL.
+
+- Backend API: `https://grow-easy-server.vercel.app`
+- Frontend app: `https://grow-easy-client.vercel.app`
+
+In Vercel, configure `NEXT_PUBLIC_API_URL=https://grow-easy-server.vercel.app` for the frontend deployment.
+
 ## Build
 
 ```bash
