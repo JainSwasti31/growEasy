@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+html {
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+body {
+  background-image:
+    radial-gradient(circle at top, rgba(79, 125, 247, 0.14), transparent 26%),
+    radial-gradient(circle at calc(100% - 6rem) 4rem, rgba(79, 125, 247, 0.08), transparent 16%);
+  background-color: #f8fafc;
+  background-attachment: fixed;
+  min-height: 100vh;
+  scroll-behavior: smooth;
+}
+
+html.dark body {
+  background-color: #020617;
+  background-image:
+    radial-gradient(circle at top, rgba(79, 125, 247, 0.14), transparent 26%),
+    radial-gradient(circle at calc(100% - 6rem) 4rem, rgba(79, 125, 247, 0.06), transparent 16%),
+    radial-gradient(circle at 10% 30%, rgba(148, 163, 184, 0.05), transparent 20%),
+    radial-gradient(circle at 80% 60%, rgba(148, 163, 184, 0.05), transparent 18%);
+}

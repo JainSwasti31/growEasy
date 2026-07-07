@@ -1,0 +1,4 @@
+﻿Name,Email,Phone,City
+Alice,alice@example.com
+Bob,bob@example.com,555-1234,New York,Extra Column Value
+Carol,carol@example.com,555-5678

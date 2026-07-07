@@ -1,0 +1,49 @@
+# Dependency folders
+node_modules/
+**/node_modules/
+
+# Build output
+dist/
+**/dist/
+.next/
+**/.next/
+build/
+**/build/
+out/
+**/out/
+
+# Local env files
+.env
+.env.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Process files
+*.pid
+*.pid.lock
+*.seed
+*.tgz
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor folders
+.vscode/
+.idea/
+
+# Cache and temporary files
+*.tsbuildinfo
+.cache/
+**/.cache/
+.parcel-cache/
+**/.parcel-cache/
+
+# Coverage
+coverage/
+**/coverage/
