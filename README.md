@@ -52,10 +52,12 @@ The client is available at `http://localhost:3000` and the server at `http://loc
 
 When deployed, set the client to point at your live backend URL.
 
-- Backend API: `https://grow-easy-server.vercel.app`
+- Backend API: `https://groweasy-0q3m.onrender.com`
 - Frontend app: `https://grow-easy-client.vercel.app`
 
-In Vercel, configure `NEXT_PUBLIC_API_URL=https://grow-easy-server.vercel.app` for the frontend deployment.
+If your backend is hosted elsewhere, use its actual URL in `client/.env` or your deployment environment.
+
+In Vercel, configure `NEXT_PUBLIC_API_URL=https://groweasy-0q3m.onrender.com` for the frontend deployment.
 
 ## Build
 
