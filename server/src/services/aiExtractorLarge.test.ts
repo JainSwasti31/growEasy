@@ -37,6 +37,7 @@ const mockChat = jest.fn(async (_system: string, userMessage: string): Promise<s
 jest.spyOn(aiProviders, 'createAiProvider').mockReturnValue({
   name: 'mock',
   chat: mockChat,
+  chatText: mockChat,
 });
 
 // ── Generate synthetic rows ───────────────────────────────────────────────────
