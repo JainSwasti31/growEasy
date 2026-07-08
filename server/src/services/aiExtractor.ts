@@ -12,9 +12,9 @@ import {
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
-/** Rows per AI call. 25 is a good balance: enough context for the model to
- *  detect patterns across rows, small enough to stay within token limits. */
-const BATCH_SIZE = 25;
+/** Rows per AI call. 10 is a safer default for Gemini to avoid MAX_TOKENS
+ * truncation on larger CSV imports while still preserving extraction quality. */
+const BATCH_SIZE = 10;
 
 /** Max provider-call retries (network/429) per attempt. */
 const PROVIDER_MAX_RETRIES: number = process.env.PROVIDER_MAX_RETRIES ? parseInt(process.env.PROVIDER_MAX_RETRIES, 10) : 2;

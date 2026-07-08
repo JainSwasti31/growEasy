@@ -60,6 +60,50 @@ export class GeminiProvider implements AiProvider {
     this.modelName = model;
   }
 
+  private extractGeminiText(response: any): string {
+    const candidate = response?.candidates?.[0];
+
+    if (typeof response.text === 'string' && response.text.trim()) {
+      console.log('[gemini] selected raw text from response.text');
+      return response.text;
+    }
+
+    if (candidate?.content != null) {
+      if (typeof candidate.content === 'string') {
+        console.log('[gemini] selected raw text from candidate.content string');
+        return candidate.content;
+      }
+
+      if (typeof candidate.content === 'object') {
+        if (Array.isArray(candidate.content.parts)) {
+          const joined = candidate.content.parts
+            .map((part: any) => (typeof part?.text === 'string' ? part.text : ''))
+            .join('');
+          if (joined.trim()) {
+            console.log('[gemini] selected raw text from candidate.content.parts');
+            return joined;
+          }
+        }
+
+        if (typeof (candidate.content as any).text === 'string') {
+          console.log('[gemini] selected raw text from candidate.content.text');
+          return (candidate.content as any).text;
+        }
+
+        console.log('[gemini] selected raw text from JSON-stringified candidate.content');
+        return JSON.stringify(candidate.content);
+      }
+    }
+
+    if (typeof candidate?.text === 'string' && candidate.text.trim()) {
+      console.log('[gemini] selected raw text from candidate.text');
+      return candidate.text;
+    }
+
+    console.log('[gemini] no raw text available from response');
+    return '';
+  }
+
   async chat(systemPrompt: string, userMessage: string): Promise<string> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 90_000);
@@ -80,24 +124,7 @@ export class GeminiProvider implements AiProvider {
         candidates?: Array<{ finishReason?: string; content?: unknown; text?: string }>;
       }).candidates?.[0];
       const finishReason = candidate?.finishReason ?? 'unknown';
-
-      let rawText = '';
-      if (candidate?.content != null) {
-        rawText =
-          typeof candidate.content === 'string'
-            ? candidate.content
-            : JSON.stringify(candidate.content);
-        console.log('[gemini] selected raw text from candidate.content');
-      } else if (typeof candidate?.text === 'string' && candidate.text.trim()) {
-        rawText = candidate.text;
-        console.log('[gemini] selected raw text from candidate.text');
-      } else if (typeof response.text === 'string' && response.text.trim()) {
-        rawText = response.text;
-        console.log('[gemini] selected raw text from response.text');
-      } else {
-        rawText = '';
-        console.log('[gemini] no raw text available from response');
-      }
+      const rawText = this.extractGeminiText(response);
 
       console.log('[gemini] raw response object:');
       console.log(JSON.stringify(
@@ -161,7 +188,7 @@ export class GeminiProvider implements AiProvider {
         },
       });
 
-      const rawText = response.text ?? '';
+      const rawText = this.extractGeminiText(response);
       if (!rawText) throw new Error('Gemini returned empty response in text mode');
       console.log(`[gemini/text] first 200 chars: ${rawText.slice(0, 200)}`);
       return rawText;
