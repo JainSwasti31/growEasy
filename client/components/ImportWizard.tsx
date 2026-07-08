@@ -318,17 +318,18 @@ export default function ImportWizard() {
 
                 {/* Live counters — update as each batch arrives */}
                 {streamBatch > 0 && (
-                  <div className="flex items-center justify-center gap-4 text-xs text-slate-500 dark:text-slate-400">
-                    <span className="flex items-center gap-1.5">
+                  <div className="text-center text-xs text-slate-500 dark:text-slate-400">
+                    <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 dark:bg-slate-800">
                       <span className="h-2 w-2 rounded-full bg-green-500 inline-block" />
-                      {streamImported.toLocaleString()} imported
-                    </span>
-                    {streamSkipped > 0 && (
-                      <span className="flex items-center gap-1.5">
+                      Imported {streamImported.toLocaleString()}
+                      <span className="text-slate-400">/</span>
+                      <span className="inline-flex items-center gap-1.5">
                         <span className="h-2 w-2 rounded-full bg-amber-400 inline-block" />
-                        {streamSkipped.toLocaleString()} skipped
+                        Skipped {streamSkipped.toLocaleString()}
                       </span>
-                    )}
+                      <span className="text-slate-400">·</span>
+                      Batch {streamBatch} of {estimatedBatches}
+                    </span>
                   </div>
                 )}
 
@@ -346,7 +347,7 @@ export default function ImportWizard() {
 
                 <p className="text-xs text-slate-400 dark:text-slate-500">
                   {streamBatch > 0
-                    ? `Batch ${streamBatch} of ${estimatedBatches}`
+                    ? 'Streaming results live from the AI import endpoint…'
                     : 'Connecting to AI…'}
                 </p>
               </div>

@@ -1,4 +1,4 @@
-import type { ImportResponse, StreamEvent, StreamBatchEvent, StreamDoneEvent } from '@groweasy/shared';
+import type { ImportResponse, RetryResponse, StreamEvent, StreamBatchEvent, StreamDoneEvent } from '@groweasy/shared';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 const IMPORT_TIMEOUT_MS = 3 * 60 * 1000;
@@ -164,8 +164,49 @@ export async function importCsvStream(
         else if (event.type === 'error') callbacks.onError?.(event.message);
       } catch { /* incomplete chunk, ignore */ }
     }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'The stream disconnected unexpectedly.';
+    callbacks.onError?.(message);
+    throw new Error(message);
   } finally {
     clearTimeout(timeoutId);
     reader.releaseLock();
   }
+}
+
+export async function retryCsvRows(headers: string[], rows: Record<string, string>[]): Promise<RetryResponse> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), IMPORT_TIMEOUT_MS);
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}/api/csv/retry`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ headers, rows }),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new Error('The request timed out. Please try again.');
+    }
+    throw new Error('Could not reach the server. Please check your connection and try again.');
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  if (!res.ok) {
+    let errorMessage = `Server error (${res.status})`;
+    try {
+      const ct = res.headers.get('content-type') ?? '';
+      if (ct.includes('application/json')) {
+        const body = await res.json();
+        errorMessage = body.error ?? errorMessage;
+      }
+    } catch { /* use default */ }
+    throw new Error(errorMessage);
+  }
+
+  return res.json() as Promise<RetryResponse>;
 }

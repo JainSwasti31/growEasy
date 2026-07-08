@@ -37,6 +37,15 @@ copy server\.env.example server\.env
 
 Then update `server/.env` with your chosen provider and API keys.
 
+Required server environment variables:
+
+- `GEMINI_API_KEY` for Gemini provider
+- `OPENAI_API_KEY` for OpenAI provider
+- `ANTHROPIC_API_KEY` for Anthropic provider
+- `AI_PROVIDER` to choose `openai`, `gemini`, or `anthropic`
+
+The importer uses the streaming NDJSON endpoint for live batch progress and a retry endpoint for reprocessing previously skipped rows that failed AI validation.
+
 ## Development
 
 Run the server and client in separate terminals:
@@ -73,9 +82,9 @@ npm run build
 |---|---|---|
 | `PORT` | No | Server port (default: 4000) |
 | `AI_PROVIDER` | Yes | `openai`, `gemini`, or `anthropic` |
-| `OPENAI_API_KEY` | Conditionally | OpenAI secret key |
-| `GEMINI_API_KEY` | Conditionally | Google Gemini API key |
-| `ANTHROPIC_API_KEY` | Conditionally | Anthropic API key |
+| `GEMINI_API_KEY` | Conditionally | Gemini API key when `AI_PROVIDER=gemini` |
+| `OPENAI_API_KEY` | Conditionally | OpenAI API key when `AI_PROVIDER=openai` |
+| `ANTHROPIC_API_KEY` | Conditionally | Anthropic API key when `AI_PROVIDER=anthropic` |
 | `CORS_ORIGINS` | No | Comma-separated origins (default: `http://localhost:3000`) |
 | `RESTART_TOKEN` | No | Optional token for admin restart endpoint |
 | `PROVIDER_MAX_RETRIES` | No | Retry attempts for provider errors |

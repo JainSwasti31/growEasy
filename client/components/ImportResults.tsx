@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { ImportResponse, CrmRecord } from '@groweasy/shared';
+import { retryCsvRows } from '@/lib/apiClient';
 import Toast from './Toast';
 import Spinner from './Spinner';
 
@@ -36,11 +37,35 @@ export default function ImportResults({ result, fileName, headers, onReset }: Pr
   const [localImported, setLocalImported] = useState<CrmRecord[]>(result.imported);
   const [localSkipped, setLocalSkipped] = useState<ImportResponse['skipped']>(result.skipped);
   const [toast, setToast] = useState<{msg: string; type?: 'success'|'error'|'info'} | null>(null);
+  const [isRetrying, setIsRetrying] = useState(false);
 
   const totalRows = result.totalRows;
   const totalImported = localImported.length;
   const totalSkipped = localSkipped.length;
   const successRate = totalRows > 0 ? (totalImported / totalRows) * 100 : 0;
+  const retryableSkippedRows = localSkipped.filter((entry) => entry.reason.startsWith('ai_validation_failed'));
+
+  const handleRetryFailedRows = async () => {
+    if (retryableSkippedRows.length === 0) return;
+
+    setIsRetrying(true);
+    setToast(null);
+
+    try {
+      const retryResponse = await retryCsvRows(headers, retryableSkippedRows.map(({ row }) => row));
+      setLocalImported((prev) => [...prev, ...retryResponse.imported]);
+      setLocalSkipped((prev) => prev.filter((entry) => !entry.reason.startsWith('ai_validation_failed')).concat(retryResponse.skipped));
+      setToast({
+        msg: `Retried ${retryableSkippedRows.length} failed row${retryableSkippedRows.length === 1 ? '' : 's'}. ${retryResponse.totalImported} imported, ${retryResponse.totalSkipped} skipped.`,
+        type: 'success',
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unable to retry failed rows.';
+      setToast({ msg, type: 'error' });
+    } finally {
+      setIsRetrying(false);
+    }
+  };
 
   return (
     <div className="w-full max-w-5xl space-y-6">
@@ -76,7 +101,20 @@ export default function ImportResults({ result, fileName, headers, onReset }: Pr
 
       {localSkipped.length > 0 && (
         <Section title={`Skipped rows (${totalSkipped.toLocaleString()})`} accent="amber">
-          <p className="mb-3 text-sm text-amber-600">These rows were skipped during import. Review the reason and the original data below.</p>
+          <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-amber-600">These rows were skipped during import. Review the reason and the original data below.</p>
+            {retryableSkippedRows.length > 0 && (
+              <button
+                type="button"
+                onClick={handleRetryFailedRows}
+                disabled={isRetrying}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-700 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-70 dark:border-amber-800/40 dark:bg-amber-900/20 dark:text-amber-300"
+              >
+                {isRetrying ? <Spinner size={14} /> : <RetryIcon />}
+                {isRetrying ? 'Retrying…' : `Retry failed rows (${retryableSkippedRows.length})`}
+              </button>
+            )}
+          </div>
           {toast && <Toast message={toast.msg} type={toast.type || 'info'} onClose={() => setToast(null)} />}
           <VirtualSkippedTable rows={localSkipped} />
         </Section>
@@ -239,6 +277,14 @@ function UploadIcon() {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
       <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+    </svg>
+  );
+}
+
+function RetryIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.992 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.348a8.25 8.25 0 0113.803-3.7l3.181 3.182" />
     </svg>
   );
 }
