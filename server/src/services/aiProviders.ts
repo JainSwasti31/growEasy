@@ -4,6 +4,9 @@ import OpenAI from 'openai';
 // Minimal provider interface used across the extraction pipeline.
 export interface AiProvider {
   chat(systemPrompt: string, userMessage: string): Promise<string>;
+  /** Fallback: same as chat() but without JSON MIME type — used for retries
+   *  when the model ignores responseMimeType and returns free-form text. */
+  chatText(systemPrompt: string, userMessage: string): Promise<string>;
   readonly name: string;
 }
 
@@ -61,6 +64,7 @@ export class GeminiProvider implements AiProvider {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 90_000);
     try {
+      // First attempt: request JSON MIME type (works on models that support it)
       const response = await this.client.models.generateContent({
         model: this.modelName,
         contents: [{ role: 'user', parts: [{ text: userMessage }] }],
@@ -73,15 +77,64 @@ export class GeminiProvider implements AiProvider {
       });
 
       const rawText = response.text ?? '';
-      const finishReason = (response as { candidates?: Array<{ finishReason?: string }> }).candidates?.[0]?.finishReason;
-      console.log(`[gemini] raw response text:\n${rawText}`);
-      console.log(`[gemini] finishReason: ${finishReason ?? 'unknown'}`);
+      const candidate = (response as {
+        candidates?: Array<{ finishReason?: string; content?: unknown }>;
+      }).candidates?.[0];
+      const finishReason = candidate?.finishReason ?? 'unknown';
 
-      if (!rawText) throw new Error('Gemini returned an empty response');
-      return rawText;
+      console.log('[gemini] raw response text:');
+      console.log(rawText);
+      console.log(`[gemini] finishReason: ${finishReason}`);
+
+      // If the model returned nothing (e.g. safety block), throw so retry fires
+      if (!rawText) {
+        throw new Error(`Gemini returned empty response (finishReason: ${finishReason})`);
+      }
+
+      // Quick JSON validity check — if it fails, the model ignored the MIME type
+      try {
+        JSON.parse(rawText);
+        return rawText; // valid JSON, all good
+      } catch {
+        // Model returned non-JSON despite MIME type request.
+        // Log a full sample so the deployed backend shows the exact issue.
+        console.warn('[gemini] responseMimeType was set but response is not JSON. Raw output:');
+        console.warn(rawText);
+        throw new Error(`Gemini returned non-JSON response despite responseMimeType: ${rawText.slice(0, 100)}`);
+      }
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
         throw new Error('Gemini request timed out after 90 seconds');
+      }
+      // Re-throw all other errors — the batch retry layer handles them
+      throw err;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+  /** Text-mode fallback: no responseMimeType, relies on prompt-only JSON enforcement. */
+  async chatText(systemPrompt: string, userMessage: string): Promise<string> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 90_000);
+    try {
+      const response = await this.client.models.generateContent({
+        model: this.modelName,
+        contents: [{ role: 'user', parts: [{ text: userMessage }] }],
+        config: {
+          systemInstruction: systemPrompt,
+          // No responseMimeType — model returns free text, we extract JSON from it
+          temperature: 0.1,
+          maxOutputTokens: 8192,
+        },
+      });
+
+      const rawText = response.text ?? '';
+      if (!rawText) throw new Error('Gemini returned empty response in text mode');
+      console.log(`[gemini/text] first 200 chars: ${rawText.slice(0, 200)}`);
+      return rawText;
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        throw new Error('Gemini text-mode request timed out after 90 seconds');
       }
       throw err;
     } finally {
@@ -89,8 +142,6 @@ export class GeminiProvider implements AiProvider {
     }
   }
 }
-
-// ── OpenAI ────────────────────────────────────────────────────────────────────
 
 /**
  * Fully implemented OpenAI provider using structured output (json_schema).
@@ -134,6 +185,11 @@ export class OpenAIProvider implements AiProvider {
 
     return text;
   }
+
+  async chatText(systemPrompt: string, userMessage: string): Promise<string> {
+    // OpenAI json_object mode already enforces JSON — text mode is the same call
+    return this.chat(systemPrompt, userMessage);
+  }
 }
 
 // ── Anthropic (stub — clear typed error) ──────────────────────────────────────
@@ -154,6 +210,10 @@ export class AnthropicProvider implements AiProvider {
     throw new Error(
       '[AnthropicProvider] Not yet implemented. Set AI_PROVIDER=gemini or AI_PROVIDER=openai.'
     );
+  }
+
+  async chatText(_systemPrompt: string, _userMessage: string): Promise<string> {
+    return this.chat(_systemPrompt, _userMessage);
   }
 }
 
