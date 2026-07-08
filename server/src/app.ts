@@ -13,13 +13,19 @@ const allowedOrigins = (process.env.CORS_ORIGINS ?? 'http://localhost:3000')
   .split(',')
   .map((o) => o.trim());
 
-app.use(
-  cors({
-    origin: allowedOrigins,
-    methods: ['GET', 'POST'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  })
-);
+const corsOptions = {
+  origin: allowedOrigins,
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['Content-Type', 'Transfer-Encoding'],
+  credentials: false,
+  optionsSuccessStatus: 204,
+};
+
+app.use(cors(corsOptions));
+
+// Explicit preflight handler for all routes (required for cross-origin streaming)
+app.options('*', cors(corsOptions));
 
 app.use(express.json({ limit: '1mb' }));
 app.use(morgan('dev'));

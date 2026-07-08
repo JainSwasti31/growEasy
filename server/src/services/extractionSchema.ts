@@ -42,6 +42,8 @@ export type AiBatchResponse = z.infer<typeof AiBatchResponseSchema>;
 export function extractJsonFromText(text: string): unknown {
   const trimmed = text.trim();
 
+  const candidates = [trimmed];
+
   // 1. Direct parse
   try {
     return JSON.parse(trimmed);
@@ -49,22 +51,26 @@ export function extractJsonFromText(text: string): unknown {
     // continue
   }
 
-  // 2. Strip markdown fences
-  const fenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
+  // 2. Strip markdown fences with optional language tag
+  const fenceMatch = trimmed.match(/```(?:json|javascript|js|txt)?\s*([\s\S]*?)```/i);
   if (fenceMatch?.[1]) {
-    try {
-      return JSON.parse(fenceMatch[1].trim());
-    } catch {
-      // continue
-    }
+    candidates.push(fenceMatch[1].trim());
   }
 
-  // 3. Find outermost braces
-  const firstBrace = trimmed.indexOf('{');
-  const lastBrace = trimmed.lastIndexOf('}');
-  if (firstBrace !== -1 && lastBrace > firstBrace) {
+  // 3. Remove leading/trailing prose around a JSON object/array
+  const objectMatch = trimmed.match(/\{[\s\S]*\}/);
+  const arrayMatch = trimmed.match(/\[[\s\S]*\]/);
+  if (objectMatch?.[0]) {
+    candidates.push(objectMatch[0]);
+  }
+  if (arrayMatch?.[0]) {
+    candidates.push(arrayMatch[0]);
+  }
+
+  // 4. Try each candidate in turn
+  for (const candidate of candidates) {
     try {
-      return JSON.parse(trimmed.slice(firstBrace, lastBrace + 1));
+      return JSON.parse(candidate);
     } catch {
       // continue
     }

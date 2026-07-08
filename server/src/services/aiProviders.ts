@@ -52,7 +52,7 @@ export class GeminiProvider implements AiProvider {
   private client: GoogleGenAI;
   private modelName: string;
 
-  constructor(apiKey: string, model = 'gemini-flash-latest') {
+  constructor(apiKey: string, model = 'gemini-2.5-flash') {
     this.client = new GoogleGenAI({ apiKey });
     this.modelName = model;
   }
@@ -71,9 +71,14 @@ export class GeminiProvider implements AiProvider {
           maxOutputTokens: 8192,
         },
       });
-      const text = response.text ?? '';
-      if (!text) throw new Error('Gemini returned an empty response');
-      return text;
+
+      const rawText = response.text ?? '';
+      const finishReason = (response as { candidates?: Array<{ finishReason?: string }> }).candidates?.[0]?.finishReason;
+      console.log(`[gemini] raw response text:\n${rawText}`);
+      console.log(`[gemini] finishReason: ${finishReason ?? 'unknown'}`);
+
+      if (!rawText) throw new Error('Gemini returned an empty response');
+      return rawText;
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
         throw new Error('Gemini request timed out after 90 seconds');
