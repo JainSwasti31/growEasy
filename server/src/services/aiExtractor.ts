@@ -137,13 +137,19 @@ async function processBatchWithRetry(
   // ── Attempt 1 ──────────────────────────────────────────────────────────────
   const userMessage = buildUserMessage(batch, batchIdx, totalBatches);
 
-  // Helper to call provider.chat with provider-level retries (network/429)
-  const callProvider = async (msg: string) =>
-    withRetry(() => provider.chat(systemPrompt, msg), PROVIDER_MAX_RETRIES, 500);
+  // Helper to call provider.chat or provider.chatText with provider-level retries.
+  const callProvider = async (msg: string, useTextFallback = false) =>
+    withRetry(
+      () =>
+        useTextFallback
+          ? provider.chatText(systemPrompt, msg)
+          : provider.chat(systemPrompt, msg),
+      PROVIDER_MAX_RETRIES,
+      500
+    );
 
-  // First, attempt provider call + parse. If parse fails, retry with stricter prompt
-  // up to PARSE_MAX_RETRIES times. Provider-level transient errors are handled
-  // by withRetry (including 429 with Retry-After hints).
+  // First, attempt provider call + parse. If parse fails, retry with a stricter
+  // prompt in text-mode so we can recover from Gemini returning non-JSON output.
   let attempt = 0;
   let lastParseError: unknown = null;
 
@@ -152,11 +158,14 @@ async function processBatchWithRetry(
     const msg = isRetryAttempt
       ? buildRetryMessage(batch, 'Previous response was invalid or unparseable.')
       : userMessage;
+    const useTextFallback = isRetryAttempt;
 
     try {
-      if (isRetryAttempt) console.log(`[aiExtractor] Batch ${batchIdx + 1}: parse retry ${attempt} with stricter prompt…`);
+      if (isRetryAttempt) {
+        console.log(`[aiExtractor] Batch ${batchIdx + 1}: parse retry ${attempt} with stricter prompt…`);
+      }
 
-      const rawText = await callProvider(msg);
+      const rawText = await callProvider(msg, isRetryAttempt);
       return parseAndValidate(rawText, batch);
     } catch (err) {
       // Distinguish between provider-level transient errors (handled by withRetry)
