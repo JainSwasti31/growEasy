@@ -79,18 +79,38 @@ export class GeminiProvider implements AiProvider {
       const candidate = (response as {
         candidates?: Array<{ finishReason?: string; content?: unknown; text?: string }>;
       }).candidates?.[0];
-      const rawText = response.text ?? String(candidate?.content ?? candidate?.text ?? '');
       const finishReason = candidate?.finishReason ?? 'unknown';
 
+      let rawText = '';
+      if (typeof response.text === 'string' && response.text.trim()) {
+        rawText = response.text;
+      } else if (candidate?.content != null) {
+        rawText =
+          typeof candidate.content === 'string'
+            ? candidate.content
+            : JSON.stringify(candidate.content);
+      } else if (typeof candidate?.text === 'string') {
+        rawText = candidate.text;
+      } else {
+        rawText = '';
+      }
+
       console.log('[gemini] raw response object:');
-      console.log(JSON.stringify({
-        text: response.text,
-        candidates: (response as any).candidates?.map((c: any) => ({
-          finishReason: c.finishReason,
-          text: c.text,
-          content: c.content,
-        })),
-      }, null, 2));
+      console.log(JSON.stringify(
+        {
+          text: response.text,
+          candidates: (response as any).candidates?.map((c: any) => ({
+            finishReason: c.finishReason,
+            text: c.text,
+            content:
+              typeof c.content === 'object' && c.content !== null
+                ? JSON.stringify(c.content)
+                : c.content,
+          })),
+        },
+        null,
+        2
+      ));
       console.log('[gemini] raw response text:');
       console.log(rawText);
       console.log(`[gemini] finishReason: ${finishReason}`);
